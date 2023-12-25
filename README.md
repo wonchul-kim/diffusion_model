@@ -2,6 +2,12 @@
 
 ## 1. DDPM
 
+#### Before training
+<img src='assets/ddpm/before_training_mnist.gif'>
+
+#### After training
+<img src='assets/ddpm/after_training_mnist.gif'>
+
 ## 
 
 ## References:
