@@ -1,0 +1,11 @@
+# data
+data
+
+# outputs
+outputs
+
+# models
+*.pt
+
+# cache
+__pycache__
