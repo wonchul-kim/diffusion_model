@@ -1,44 +1,6 @@
 import torch
 import torch.nn as nn 
 
-class MyDDPM(nn.Module):
-    def __init__(self, network, n_steps=200, min_beta=10 ** -4, max_beta=0.02, device=None, image_chw=(1, 28, 28)):
-        super(MyDDPM, self).__init__()
-        self.n_steps = n_steps
-        self.device = device
-        self.image_chw = image_chw
-        self.network = network.to(device)
-        self.betas = torch.linspace(min_beta, max_beta, n_steps).to(
-            device)  # Number of steps is typically in the order of thousands
-        self.alphas = 1 - self.betas
-        self.alpha_bars = torch.tensor([torch.prod(self.alphas[:i + 1]) for i in range(len(self.alphas))]).to(device)
-
-    def forward(self, x0, t, eta=None):
-        # Make input image more noisy (we can directly skip to the desired step)
-        n, c, h, w = x0.shape
-        a_bar = self.alpha_bars[t]
-
-        if eta is None:
-            eta = torch.randn(n, c, h, w).to(self.device)
-
-        noisy = a_bar.sqrt().reshape(n, 1, 1, 1) * x0 + (1 - a_bar).sqrt().reshape(n, 1, 1, 1) * eta
-        return noisy
-
-    def backward(self, x, t):
-        # Run each image through the network for each timestep t in the vector t.
-        # The network returns its estimation of the noise that was added.
-        return self.network(x, t)
-    
-"""# UNet architecture
-
-Okay great! All that concerns DDPM is down on the table already. So now we simply define an architecture that will be responsible of denoising the we should be good to go... Not so fast! While in principle that's true, we have to be careful to conditioning our model with the temporal information.
-
-Remember that the only term of the loss function that we really care about is $||\epsilon - \epsilon_\theta(\sqrt{\bar{\alpha}_t}x_0 + \sqrt{1 - \bar{\alpha}_t}\epsilon, t)||^2$, where $\epsilon$ is some random noise and $\epsilon_\theta$ is the model's prediction of the noise. Now, $\epsilon_\theta$ is a function of both $x$ and $t$ and we don't want to have a distinct model for each denoising step (thousands of independent models), but instead we want to use a single model that takes as input the image $x$ and the scalar value indicating the timestep $t$.
-
-To do so, in practice we use a sinusoidal embedding (function `sinusoidal_embedding`) that maps each time-step to a `time_emb_dim` dimension. These time embeddings are further mapped with some time-embedding MLPs (function `_make_te`) and added to tensors through the network in a channel-wise manner.
-
-**NOTE:** This UNet architecture is purely arbitrary and was desined to work with 28x28 spatial resolution images.
-"""
 
 def sinusoidal_embedding(n, d):
     # Returns the standard positional embedding
@@ -68,9 +30,22 @@ class MyBlock(nn.Module):
         out = self.activation(out)
         return out
 
-class MyUNet(nn.Module):
+
+class UNet(nn.Module):
+    """# UNet architecture
+
+    we really care about is $||\epsilon - \epsilon_\theta(\sqrt{\bar{\alpha}_t}x_0 + \sqrt{1 - \bar{\alpha}_t}\epsilon, t)||^2$, where $\epsilon$ is some random noise and $\epsilon_\theta$ is the model's prediction of the noise. Now, $\epsilon_\theta$ is a function of both $x$ and $t$ and we don't want to have a distinct model for each denoising step (thousands of independent models), but instead we want to use a single model that takes as input the image $x$ and the scalar value indicating the timestep $t$.
+
+    To do so, in practice we use a sinusoidal embedding (function `sinusoidal_embedding`) 
+    that maps each time-step to a `time_emb_dim` dimension. 
+    These time embeddings are further mapped with some time-embedding MLPs 
+    (function `_make_te`) and added to tensors through the network in a channel-wise manner.
+
+    **NOTE:** This UNet architecture is purely arbitrary and was desined to work with 28x28 spatial resolution images.
+    """
+
     def __init__(self, n_steps=1000, time_emb_dim=100):
-        super(MyUNet, self).__init__()
+        super(UNet, self).__init__()
 
         # Sinusoidal embedding
         self.time_embed = nn.Embedding(n_steps, time_emb_dim)

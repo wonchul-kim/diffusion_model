@@ -2,7 +2,7 @@ import torch.nn as nn
 import torch
 from tqdm.auto import tqdm
 
-from utils import show_images, generate_new_images
+from .vis import show_images, generate_new_images
 
 
 """# Training loop
